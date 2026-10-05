@@ -98,6 +98,17 @@ describe('打牌建議（17 張）', () => {
     expect(adviceToText(buildAdvice(r)[0])).toContain('胡牌')
   })
 
+  it('張數不足 17 時牌型完整不說胡牌', () => {
+    for (const h of ['11m', '123m11z']) {
+      const r = analyzeHand(parseHand(h))
+      if (r.kind !== 'discard') throw new Error()
+      expect(r.win).toBe(true)
+      const text = adviceToText(buildAdvice(r)[0])
+      expect(text).not.toContain('胡牌')
+      expect(text).toContain('牌型已完整')
+    }
+  })
+
   it('建議文字含牌名片段', () => {
     const r = analyzeHand(parseHand('123m456m789m123p45s11z7z'))
     const [first] = buildAdvice(r)

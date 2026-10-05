@@ -25,7 +25,7 @@ export type HandAnalysis =
   /** 3n+1 張：等牌 */
   | { kind: 'wait'; shanten: number; tiles: TileCount[]; total: number }
   /** 3n+2 張：該打牌 */
-  | { kind: 'discard'; win: boolean; options: DiscardOption[] }
+  | { kind: 'discard'; count: number; win: boolean; options: DiscardOption[] }
 
 /**
  * 3n+1 張時，找出摸進後能降低進聽數的牌（聽牌時即為聽的牌）。
@@ -76,7 +76,7 @@ export function analyzeHand(input: Counts): HandAnalysis {
       b.tiles.length - a.tiles.length ||
       a.tile - b.tile,
   )
-  return { kind: 'discard', win, options }
+  return { kind: 'discard', count: n, win, options }
 }
 
 const CN_NUM = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
@@ -145,7 +145,12 @@ export function buildAdvice(result: HandAnalysis): AdviceLine[] {
     }
     case 'discard': {
       const lines: AdviceLine[] = []
-      if (result.win) lines.push([strong('🎉 已經胡牌了！'), '以下為若不胡、繼續打的分析。'])
+      // 張數不足 17 時只是牌型湊齊，不算真的胡牌
+      if (result.win && result.count === MAX_HAND) {
+        lines.push([strong('🎉 已經胡牌了！'), '以下為若不胡、繼續打的分析。'])
+      } else if (result.win) {
+        lines.push([strong('牌型已完整'), '（全部組成面子與雀頭），以下為繼續打的分析。'])
+      }
       const [best, ...rest] = result.options
       const ties = rest.filter((o) => o.shanten === best.shanten && o.total === best.total)
       const names = tileParts([best, ...ties].map((o) => o.tile), ' 或 ')

@@ -21,7 +21,7 @@ npm run preview  # 預覽 build 結果
 
 ## 技術棧
 
-React 19 + TypeScript + Vite，測試用 Vitest。無後端、無路由、無狀態管理套件。
+React 19 + TypeScript + Vite，測試用 Vitest。無後端、無路由、無狀態管理套件。流量統計用 `@vercel/analytics`（`main.tsx` 的 `<Analytics />`，需在 Vercel 專案啟用 Web Analytics）。
 
 ## 架構
 
