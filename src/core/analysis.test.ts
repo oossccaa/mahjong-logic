@@ -122,8 +122,7 @@ describe('打牌建議（17 張）', () => {
     expect(r.kongs.map((k) => tileName(k.tile))).toEqual(['九條'])
     const [first, second] = buildAdvice(r).map(adviceToText)
     expect(first).toMatch(/^建議先暗槓 九條：槓後一進聽/)
-    expect(second).toMatch(/^若不槓，則打 /)
-    expect(second).not.toContain('九條')
+    expect(second).toMatch(/^若不槓，則打 九條：打後一進聽/)
   })
 
   it('槓後會退進聽時不建議槓', () => {

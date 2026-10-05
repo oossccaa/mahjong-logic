@@ -180,8 +180,7 @@ export function buildAdvice(result: HandAnalysis): AdviceLine[] {
       const kong = result.kongs.find((k) => k.shanten <= best.shanten)
       if (kong && !result.win) {
         lines.push(line`建議先暗槓 ${{ tile: kong.tile }}：${describeKong(kong)}。`)
-        const alt = result.options.find((o) => o.tile !== kong.tile) ?? best
-        lines.push(line`若不槓，則打 ${{ tile: alt.tile }}：${describeOption(alt)}。`)
+        lines.push(line`若不槓，則打 ${{ tile: best.tile }}：${describeOption(best)}。`)
         return lines
       }
       for (const k of result.kongs.filter((k) => k.shanten > best.shanten)) {
