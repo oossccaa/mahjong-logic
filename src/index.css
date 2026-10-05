@@ -179,6 +179,46 @@ button.tile:disabled {
   color: #fff;
 }
 
+.sort-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 14px;
+}
+
+.sort-switch .track {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.3);
+  transition: background 0.15s;
+}
+
+.sort-switch .thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.sort-switch.on .track {
+  background: var(--accent);
+}
+
+.sort-switch.on .thumb {
+  transform: translateX(14px);
+}
+
 .clear-btn:disabled {
   opacity: 0.4;
 }

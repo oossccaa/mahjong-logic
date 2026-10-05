@@ -116,6 +116,27 @@ describe('打牌建議（17 張）', () => {
     expect(adviceToText(first)).toBe('建議打 白：打後聽 三條、六條，共 8 張。')
   })
 
+  it('有 4 張相同時建議暗槓而非打出', () => {
+    const r = analyzeHand(parseHand('1222m45m7889p9999s'))
+    if (r.kind !== 'discard') throw new Error()
+    expect(r.kongs.map((k) => tileName(k.tile))).toEqual(['九條'])
+    const [first, second] = buildAdvice(r).map(adviceToText)
+    expect(first).toMatch(/^建議先暗槓 九條：槓後一進聽/)
+    expect(second).toMatch(/^若不槓，則打 /)
+    expect(second).not.toContain('九條')
+  })
+
+  it('槓後會退進聽時不建議槓', () => {
+    // 1m 2222m 3m：拆成 123m + 222m，槓了剩 13m 嵌張
+    const r = analyzeHand(parseHand('122223m456p789p1z5s'))
+    if (r.kind !== 'discard') throw new Error()
+    const [kong] = r.kongs
+    expect(kong.shanten).toBeGreaterThan(r.options[0].shanten)
+    const text = buildAdvice(r).map(adviceToText)
+    expect(text[0]).toContain('拆開使用較好')
+    expect(text.some((t) => t.startsWith('建議打'))).toBe(true)
+  })
+
   it('15 張提示再補牌', () => {
     const r = analyzeHand(parseHand('123m456m789m123p456p'))
     expect(r.kind).toBe('incomplete')

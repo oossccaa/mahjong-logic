@@ -37,7 +37,7 @@ src/
     TilePicker     選牌面板，點擊加入
     AnalysisPanel  顯示分析結果與建議
     Tile / TileArt 牌面繪製
-  App.tsx        持有手牌 counts 狀態，useMemo 呼叫 analyzeHand
+  App.tsx        持有手牌（依點選順序的 id 陣列）與「理牌」開關，useMemo 轉 counts 呼叫 analyzeHand
 ```
 
 ### 核心資料模型
@@ -52,7 +52,7 @@ src/
 - `analyzeHand` 依張數分流：
   - 3n 張 → `incomplete`（需再補牌）
   - 3n+1 張 → `wait`：進聽數與有效進張（聽牌時即聽的牌）
-  - 3n+2 張 → `discard`：每張可打的牌各自的進聽數與進張，依進聽數、剩餘張數排序
+  - 3n+2 張 → `discard`：每張可打的牌各自的進聽數與進張，依進聽數、剩餘張數排序；手上有 4 張的牌另列 `kongs`（暗槓後剩餘牌的進聽數與補牌進張），槓後不退進聽時建議先槓
 - 剩餘張數只扣除自己手上的牌（未考慮牌河、副露）。
 - `buildAdvice` 回傳 `AdviceLine[]`，片段可為字串、`{ tile }`（UI 以花色顏色顯示）或 `{ strong }`；`adviceToText` 可轉純文字供測試。
 

@@ -25,7 +25,14 @@ export type HandAnalysis =
   /** 3n+1 張：等牌 */
   | { kind: 'wait'; shanten: number; tiles: TileCount[]; total: number }
   /** 3n+2 張：該打牌 */
-  | { kind: 'discard'; count: number; win: boolean; options: DiscardOption[] }
+  | {
+      kind: 'discard'
+      count: number
+      win: boolean
+      options: DiscardOption[]
+      /** 手上有 4 張可暗槓的牌：槓後（不含槓子）的進聽數，tiles 為補牌的有效進張 */
+      kongs: DiscardOption[]
+    }
 
 /**
  * 3n+1 張時，找出摸進後能降低進聽數的牌（聽牌時即為聽的牌）。
@@ -76,7 +83,18 @@ export function analyzeHand(input: Counts): HandAnalysis {
       b.tiles.length - a.tiles.length ||
       a.tile - b.tile,
   )
-  return { kind: 'discard', count: n, win, options }
+
+  // 暗槓：4 張固定成一組，剩下 3n+1 張等補牌
+  const kongs: DiscardOption[] = []
+  for (let t = 0; t < TILE_KINDS; t++) {
+    if (counts[t] < MAX_PER_TILE) continue
+    counts[t] = 0
+    const shanten = calcShanten(counts)
+    const tiles = effectiveTiles(counts, shanten, input)
+    counts[t] = MAX_PER_TILE
+    kongs.push({ tile: t, shanten, tiles, total: sumRemaining(tiles) })
+  }
+  return { kind: 'discard', count: n, win, options, kongs }
 }
 
 const CN_NUM = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
@@ -125,6 +143,12 @@ function describeOption(o: DiscardOption): AdviceLine {
   return line`打後${strong(shantenLabel(o.shanten))}，有效進張 ${o.tiles.length} 種 ${strong(o.total)} 張`
 }
 
+function describeKong(k: DiscardOption): AdviceLine {
+  if (k.shanten < 0) return ['槓後牌型已完整']
+  if (k.shanten === 0) return line`槓後聽牌，補牌摸到 ${waitTiles(k.tiles)} 即槓上開花（共 ${strong(k.total)} 張）`
+  return line`槓後${strong(shantenLabel(k.shanten))}並立即補牌，補牌有效進張 ${k.tiles.length} 種 ${strong(k.total)} 張`
+}
+
 /** 依分析結果產生給玩家看的建議 */
 export function buildAdvice(result: HandAnalysis): AdviceLine[] {
   switch (result.kind) {
@@ -152,6 +176,17 @@ export function buildAdvice(result: HandAnalysis): AdviceLine[] {
         lines.push([strong('牌型已完整'), '（全部組成面子與雀頭），以下為繼續打的分析。'])
       }
       const [best, ...rest] = result.options
+      // 槓後不退進聽就該槓：多摸一張補牌，等於白賺一手
+      const kong = result.kongs.find((k) => k.shanten <= best.shanten)
+      if (kong && !result.win) {
+        lines.push(line`建議先暗槓 ${{ tile: kong.tile }}：${describeKong(kong)}。`)
+        const alt = result.options.find((o) => o.tile !== kong.tile) ?? best
+        lines.push(line`若不槓，則打 ${{ tile: alt.tile }}：${describeOption(alt)}。`)
+        return lines
+      }
+      for (const k of result.kongs.filter((k) => k.shanten > best.shanten)) {
+        lines.push(line`手上有 4 張 ${{ tile: k.tile }} 可暗槓，但槓後為${strong(shantenLabel(k.shanten))}，拆開使用較好。`)
+      }
       const ties = rest.filter((o) => o.shanten === best.shanten && o.total === best.total)
       const names = tileParts([best, ...ties].map((o) => o.tile), ' 或 ')
       lines.push(line`建議打 ${names}：${describeOption(best)}。`)

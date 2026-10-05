@@ -58,8 +58,24 @@ export function AnalysisPanel({ result }: { result: HandAnalysis }) {
         <section className="card">
           <h2>打牌分析</h2>
           <ul className="discard-list">
+            {result.kongs.map((k) => (
+              <li key={`kong-${k.tile}`} className={k.shanten <= result.options[0].shanten ? 'best' : ''}>
+                <div className="discard-head">
+                  <span className="label">槓</span>
+                  <Tile id={k.tile} size="sm" />
+                  <span className={`shanten s${Math.max(0, Math.min(k.shanten, 3))}`}>{shantenLabel(k.shanten)}</span>
+                  <span className="sum">
+                    {k.tiles.length} 種 {k.total} 張
+                  </span>
+                </div>
+                <div className="discard-body">
+                  <span className="label">補</span>
+                  <TileList tiles={k.tiles} />
+                </div>
+              </li>
+            ))}
             {result.options.map((o, i) => (
-              <li key={o.tile} className={i === 0 ? 'best' : ''}>
+              <li key={o.tile} className={i === 0 && !result.kongs.some((k) => k.shanten <= o.shanten) ? 'best' : ''}>
                 <div className="discard-head">
                   <span className="label">打</span>
                   <Tile id={o.tile} size="sm" />
