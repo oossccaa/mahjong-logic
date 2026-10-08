@@ -21,6 +21,36 @@ function TileList({ tiles }: { tiles: TileCount[] }) {
   )
 }
 
+/** 一進聽：每張進張摸進後該打什麼、聽哪些牌 */
+function DrawList({ tiles }: { tiles: TileCount[] }) {
+  const rows = [...tiles].sort((a, b) => (b.wait ?? 0) - (a.wait ?? 0) || a.tile - b.tile)
+  const top = rows[0]?.wait ?? 0
+  return (
+    <ul className="discard-list">
+      {rows.map((t) => (
+        <li key={t.tile} className={t.wait === top && top > 0 ? 'best' : ''}>
+          <div className="discard-head">
+            <span className="label">進</span>
+            <Tile id={t.tile} size="sm" />
+            <span className="muted">剩 {t.remaining}</span>
+            {t.tenpai && (
+              <>
+                <span className="label">打</span>
+                <Tile id={t.tenpai.discard} size="sm" />
+              </>
+            )}
+            <span className="sum">聽 {t.wait ?? 0} 張</span>
+          </div>
+          <div className="discard-body">
+            <span className="label">聽</span>
+            <TileList tiles={t.tenpai?.waits ?? []} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function AdviceText({ line }: { line: AdviceLine }) {
   return (
     <p>
@@ -58,7 +88,7 @@ export function AnalysisPanel({ result }: { result: HandAnalysis }) {
               {result.avgWait !== undefined && `・平均聽 ${formatWait(result.avgWait)} 張`}
             </span>
           </h2>
-          <TileList tiles={result.tiles} />
+          {result.shanten === 1 ? <DrawList tiles={result.tiles} /> : <TileList tiles={result.tiles} />}
         </section>
       )}
 

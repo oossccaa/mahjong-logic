@@ -151,7 +151,16 @@ describe('打牌建議（17 張）', () => {
     expect(text[1]).toBe('與打 四萬 進張相同，但聽牌後平均多聽 1.3 張。')
   })
 
-  it('非一進聽不計算聽牌品質', () => {
+  it('一進聽（16 張）列出每張進張摸進後的打法與聽牌', () => {
+    const r = analyzeHand(parseHand('24579m123p456p789s11z'))
+    if (r.kind !== 'wait') throw new Error()
+    const eight = r.tiles.find((t) => tileName(t.tile) === '八萬')!
+    expect(tileName(eight.tenpai!.discard)).toBe('二萬')
+    expect(names(eight.tenpai!.waits)).toEqual(['三萬', '六萬'])
+    expect(eight.wait).toBe(8)
+  })
+
+    it('非一進聽不計算聽牌品質', () => {
     const r = analyzeHand(parseHand('123m456m789m123p45s11z7z'))
     if (r.kind !== 'discard') throw new Error()
     expect(r.options[0].avgWait).toBeUndefined()

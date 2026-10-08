@@ -9,6 +9,8 @@ export interface TileCount {
   remaining: number
   /** 一進聽時：摸進這張後，打出最佳一張所能聽的張數 */
   wait?: number
+  /** 一進聽時：摸進這張後聽最多的打法，及其聽的牌 */
+  tenpai?: { discard: number; waits: TileCount[] }
 }
 
 export interface DiscardOption {
@@ -59,7 +61,7 @@ const sumRemaining = (tiles: TileCount[]) => tiles.reduce((a, b) => a + b.remain
 
 /**
  * 一進聽時評估聽牌品質：對每張有效進張，摸進後找出聽最多張的打法，
- * 把聽牌張數記在 tile.wait，並回傳依進張剩餘張數加權的平均聽牌張數。
+ * 把聽牌張數記在 tile.wait、打法與聽的牌記在 tile.tenpai，並回傳依進張剩餘張數加權的平均聽牌張數。
  */
 function rateTenpai(counts: Counts, tiles: TileCount[], visible: Counts): number {
   let weighted = 0
@@ -68,14 +70,22 @@ function rateTenpai(counts: Counts, tiles: TileCount[], visible: Counts): number
     counts[eff.tile]++
     const seen = visible.slice()
     seen[eff.tile]++
-    let best = 0
+    let best = -1
     for (let d = 0; d < TILE_KINDS; d++) {
       if (counts[d] === 0 || d === eff.tile) continue
       counts[d]--
-      if (calcShanten(counts) === 0) best = Math.max(best, sumRemaining(effectiveTiles(counts, 0, seen)))
+      if (calcShanten(counts) === 0) {
+        const waits = effectiveTiles(counts, 0, seen)
+        const total = sumRemaining(waits)
+        if (total > best) {
+          best = total
+          eff.tenpai = { discard: d, waits }
+        }
+      }
       counts[d]++
     }
     counts[eff.tile]--
+    best = Math.max(best, 0)
     eff.wait = best
     weighted += best * eff.remaining
     weight += eff.remaining
