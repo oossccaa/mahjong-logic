@@ -1,4 +1,4 @@
-import { type AdviceLine, type HandAnalysis, type TileCount, buildAdvice, shantenLabel } from '../core/analysis'
+import { type AdviceLine, type HandAnalysis, type TileCount, buildAdvice, formatWait, shantenLabel } from '../core/analysis'
 import { suitOf, tileName } from '../core/tiles'
 import { Tile } from './Tile'
 
@@ -10,6 +10,11 @@ function TileList({ tiles }: { tiles: TileCount[] }) {
         <span className="tile-with-count" key={t.tile}>
           <Tile id={t.tile} size="sm" />
           <span className="remain">{t.remaining}</span>
+          {t.wait !== undefined && (
+            <span className="remain wait" title="摸進後聽牌的張數">
+              聽{t.wait}
+            </span>
+          )}
         </span>
       ))}
     </span>
@@ -48,7 +53,10 @@ export function AnalysisPanel({ result }: { result: HandAnalysis }) {
         <section className="card">
           <h2>
             {result.shanten === 0 ? '聽牌' : `${shantenLabel(result.shanten)}・有效進張`}
-            <span className="sum">共 {result.total} 張</span>
+            <span className="sum">
+              共 {result.total} 張
+              {result.avgWait !== undefined && `・平均聽 ${formatWait(result.avgWait)} 張`}
+            </span>
           </h2>
           <TileList tiles={result.tiles} />
         </section>
@@ -66,6 +74,7 @@ export function AnalysisPanel({ result }: { result: HandAnalysis }) {
                   <span className={`shanten s${Math.max(0, Math.min(k.shanten, 3))}`}>{shantenLabel(k.shanten)}</span>
                   <span className="sum">
                     {k.tiles.length} 種 {k.total} 張
+                    {k.avgWait !== undefined && `・平均聽 ${formatWait(k.avgWait)}`}
                   </span>
                 </div>
                 <div className="discard-body">
@@ -82,6 +91,7 @@ export function AnalysisPanel({ result }: { result: HandAnalysis }) {
                   <span className={`shanten s${Math.min(o.shanten, 3)}`}>{shantenLabel(o.shanten)}</span>
                   <span className="sum">
                     {o.tiles.length} 種 {o.total} 張
+                    {o.avgWait !== undefined && `・平均聽 ${formatWait(o.avgWait)}`}
                   </span>
                 </div>
                 <div className="discard-body">

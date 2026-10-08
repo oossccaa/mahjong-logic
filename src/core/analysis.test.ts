@@ -136,6 +136,27 @@ describe('打牌建議（17 張）', () => {
     expect(text.some((t) => t.startsWith('建議打'))).toBe(true)
   })
 
+  it('一進聽時比較聽牌品質', () => {
+    // 打 1m/2m/4m 進張都是 12 張，但留 2m 或 1m 摸到 8m 能聽兩面
+    const r = analyzeHand(parseHand('124579m123p456p789s11z'))
+    if (r.kind !== 'discard') throw new Error()
+    const byTile = (name: string) => r.options.find((o) => tileName(o.tile) === name)!
+    expect(byTile('一萬').total).toBe(byTile('四萬').total)
+    expect(byTile('一萬').avgWait).toBeGreaterThan(byTile('四萬').avgWait!)
+    // 打一萬後摸八萬：留 45m 兩面聽 36m 共 8 張
+    expect(byTile('一萬').tiles.find((t) => tileName(t.tile) === '八萬')?.wait).toBe(8)
+    expect(r.options.slice(0, 2).map((o) => tileName(o.tile))).toEqual(['一萬', '二萬'])
+    const text = buildAdvice(r).map(adviceToText)
+    expect(text[0]).toContain('聽牌後平均聽 5.3 張')
+    expect(text[1]).toBe('與打 四萬 進張相同，但聽牌後平均多聽 1.3 張。')
+  })
+
+  it('非一進聽不計算聽牌品質', () => {
+    const r = analyzeHand(parseHand('123m456m789m123p45s11z7z'))
+    if (r.kind !== 'discard') throw new Error()
+    expect(r.options[0].avgWait).toBeUndefined()
+  })
+
   it('15 張提示再補牌', () => {
     const r = analyzeHand(parseHand('123m456m789m123p456p'))
     expect(r.kind).toBe('incomplete')

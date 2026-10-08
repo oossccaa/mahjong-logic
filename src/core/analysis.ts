@@ -7,6 +7,8 @@ export interface TileCount {
   tile: number
   /** 尚未現身（不在自己手上）的張數 */
   remaining: number
+  /** 一進聽時：摸進這張後，打出最佳一張所能聽的張數 */
+  wait?: number
 }
 
 export interface DiscardOption {
@@ -16,6 +18,8 @@ export interface DiscardOption {
   /** 聽牌時為聽的牌，否則為有效進張 */
   tiles: TileCount[]
   total: number
+  /** 一進聽時：摸到有效進張聽牌後，平均聽幾張（依進張剩餘張數加權） */
+  avgWait?: number
 }
 
 export type HandAnalysis =
@@ -23,7 +27,7 @@ export type HandAnalysis =
   /** 張數為 3n，無法分析，需再補牌 */
   | { kind: 'incomplete'; count: number }
   /** 3n+1 張：等牌 */
-  | { kind: 'wait'; shanten: number; tiles: TileCount[]; total: number }
+  | { kind: 'wait'; shanten: number; tiles: TileCount[]; total: number; avgWait?: number }
   /** 3n+2 張：該打牌 */
   | {
       kind: 'discard'
@@ -53,6 +57,40 @@ function effectiveTiles(counts: Counts, shanten: number, visible: Counts): TileC
 
 const sumRemaining = (tiles: TileCount[]) => tiles.reduce((a, b) => a + b.remaining, 0)
 
+/**
+ * 一進聽時評估聽牌品質：對每張有效進張，摸進後找出聽最多張的打法，
+ * 把聽牌張數記在 tile.wait，並回傳依進張剩餘張數加權的平均聽牌張數。
+ */
+function rateTenpai(counts: Counts, tiles: TileCount[], visible: Counts): number {
+  let weighted = 0
+  let weight = 0
+  for (const eff of tiles) {
+    counts[eff.tile]++
+    const seen = visible.slice()
+    seen[eff.tile]++
+    let best = 0
+    for (let d = 0; d < TILE_KINDS; d++) {
+      if (counts[d] === 0 || d === eff.tile) continue
+      counts[d]--
+      if (calcShanten(counts) === 0) best = Math.max(best, sumRemaining(effectiveTiles(counts, 0, seen)))
+      counts[d]++
+    }
+    counts[eff.tile]--
+    eff.wait = best
+    weighted += best * eff.remaining
+    weight += eff.remaining
+  }
+  return weight === 0 ? 0 : weighted / weight
+}
+
+/** 3n+1 張的進聽與進張，一進聽時附上聽牌品質 */
+function evaluate(counts: Counts, visible: Counts) {
+  const shanten = calcShanten(counts)
+  const tiles = effectiveTiles(counts, shanten, visible)
+  const avgWait = shanten === 1 ? rateTenpai(counts, tiles, visible) : undefined
+  return { shanten, tiles, total: sumRemaining(tiles), avgWait }
+}
+
 export function analyzeHand(input: Counts): HandAnalysis {
   const counts = input.slice()
   const n = totalTiles(counts)
@@ -60,26 +98,21 @@ export function analyzeHand(input: Counts): HandAnalysis {
 
   if (n % 3 === 0) return { kind: 'incomplete', count: n }
 
-  if (n % 3 === 1) {
-    const shanten = calcShanten(counts)
-    const tiles = effectiveTiles(counts, shanten, input)
-    return { kind: 'wait', shanten, tiles, total: sumRemaining(tiles) }
-  }
+  if (n % 3 === 1) return { kind: 'wait', ...evaluate(counts, input) }
 
   const win = calcShanten(counts) === -1
   const options: DiscardOption[] = []
   for (let t = 0; t < TILE_KINDS; t++) {
     if (counts[t] === 0) continue
     counts[t]--
-    const shanten = calcShanten(counts)
-    const tiles = effectiveTiles(counts, shanten, input)
+    options.push({ tile: t, ...evaluate(counts, input) })
     counts[t]++
-    options.push({ tile: t, shanten, tiles, total: sumRemaining(tiles) })
   }
   options.sort(
     (a, b) =>
       a.shanten - b.shanten ||
       b.total - a.total ||
+      (b.avgWait ?? 0) - (a.avgWait ?? 0) ||
       b.tiles.length - a.tiles.length ||
       a.tile - b.tile,
   )
@@ -89,10 +122,8 @@ export function analyzeHand(input: Counts): HandAnalysis {
   for (let t = 0; t < TILE_KINDS; t++) {
     if (counts[t] < MAX_PER_TILE) continue
     counts[t] = 0
-    const shanten = calcShanten(counts)
-    const tiles = effectiveTiles(counts, shanten, input)
+    kongs.push({ tile: t, ...evaluate(counts, input) })
     counts[t] = MAX_PER_TILE
-    kongs.push({ tile: t, shanten, tiles, total: sumRemaining(tiles) })
   }
   return { kind: 'discard', count: n, win, options, kongs }
 }
@@ -138,9 +169,15 @@ export function adviceToText(l: AdviceLine): string {
     .join('')
 }
 
+/** 平均聽牌張數取一位小數 */
+export const formatWait = (n: number) => String(Math.round(n * 10) / 10)
+
+const avgWaitPart = (avgWait: number | undefined) =>
+  avgWait === undefined ? [] : line`，聽牌後平均聽 ${strong(formatWait(avgWait))} 張`
+
 function describeOption(o: DiscardOption): AdviceLine {
   if (o.shanten === 0) return line`打後聽 ${waitTiles(o.tiles)}，共 ${strong(o.total)} 張`
-  return line`打後${strong(shantenLabel(o.shanten))}，有效進張 ${o.tiles.length} 種 ${strong(o.total)} 張`
+  return line`打後${strong(shantenLabel(o.shanten))}，有效進張 ${o.tiles.length} 種 ${strong(o.total)} 張${avgWaitPart(o.avgWait)}`
 }
 
 function describeKong(k: DiscardOption): AdviceLine {
@@ -164,7 +201,7 @@ export function buildAdvice(result: HandAnalysis): AdviceLine[] {
         return lines
       }
       return [
-        line`目前${strong(shantenLabel(result.shanten))}，有效進張 ${result.tiles.length} 種 ${strong(result.total)} 張。`,
+        line`目前${strong(shantenLabel(result.shanten))}，有效進張 ${result.tiles.length} 種 ${strong(result.total)} 張${avgWaitPart(result.avgWait)}。`,
       ]
     }
     case 'discard': {
@@ -186,17 +223,32 @@ export function buildAdvice(result: HandAnalysis): AdviceLine[] {
       for (const k of result.kongs.filter((k) => k.shanten > best.shanten)) {
         lines.push(line`手上有 4 張 ${{ tile: k.tile }} 可暗槓，但槓後為${strong(shantenLabel(k.shanten))}，拆開使用較好。`)
       }
-      const ties = rest.filter((o) => o.shanten === best.shanten && o.total === best.total)
+      const sameWait = (o: DiscardOption) => formatWait(o.avgWait ?? 0) === formatWait(best.avgWait ?? 0)
+      const isTie = (o: DiscardOption) => o.shanten === best.shanten && o.total === best.total && sameWait(o)
+      const ties = rest.filter(isTie)
       const names = tileParts([best, ...ties].map((o) => o.tile), ' 或 ')
       lines.push(line`建議打 ${names}：${describeOption(best)}。`)
 
-      const next = rest.find((o) => o.shanten !== best.shanten || o.total !== best.total)
+      const next = rest.find((o) => !isTie(o))
       if (next) {
         if (next.shanten > best.shanten) {
           lines.push(line`若打 ${{ tile: next.tile }} 會退成${strong(shantenLabel(next.shanten))}。`)
-        } else {
+        } else if (next.total < best.total) {
           lines.push(line`比次佳的打 ${{ tile: next.tile }} 多 ${strong(best.total - next.total)} 張有效牌。`)
+        } else {
+          const diff = formatWait((best.avgWait ?? 0) - (next.avgWait ?? 0))
+          lines.push(line`與打 ${{ tile: next.tile }} 進張相同，但聽牌後平均多聽 ${strong(diff)} 張。`)
         }
+      }
+
+      // 一進聽時，進張最多不一定聽得最好：聽牌品質明顯較好的打法另外提出
+      const pretty = result.options
+        .filter((o) => o.shanten === best.shanten && o.avgWait !== undefined)
+        .reduce<DiscardOption | undefined>((a, o) => (!a || o.avgWait! > a.avgWait! ? o : a), undefined)
+      if (pretty && pretty !== best && pretty.avgWait! - best.avgWait! >= 1) {
+        lines.push(
+          line`若重視聽牌品質，可打 ${{ tile: pretty.tile }}：進張 ${strong(pretty.total)} 張（少 ${best.total - pretty.total} 張），但聽牌後平均聽 ${strong(formatWait(pretty.avgWait!))} 張。`,
+        )
       }
       if (best.shanten === 0 && best.total <= 2) {
         lines.push(['不過聽牌張數偏少，若不急著聽牌，可考慮保留更好的聽口。'])
