@@ -34,7 +34,7 @@ src/
     analysis.test.ts
   components/    UI 元件
     HandBar        目前手牌，點擊移除
-    TilePicker     選牌面板，點擊加入
+    TilePicker     選牌面板，點擊加入，可收起／展開
     AnalysisPanel  顯示分析結果與建議
     Tile / TileArt 牌面繪製
   App.tsx        持有手牌（依點選順序的 id 陣列）與「理牌」開關，useMemo 轉 counts 呼叫 analyzeHand
